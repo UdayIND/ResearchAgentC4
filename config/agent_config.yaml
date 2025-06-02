@@ -1,0 +1,80 @@
+# Autonomous Research Agent Configuration
+# =====================================
+
+# Agent Settings
+agent:
+  max_runtime_hours: 4
+  checkpoint_interval_minutes: 15
+  max_visualization_size_mb: 10
+  notebook_format: "jupyter_compatible"  # Use # %% syntax
+
+# API Keys (set as environment variables)
+api_keys:
+  brave_search: null  # Set BRAVE_API_KEY environment variable
+  huggingface: null   # Set HF_TOKEN environment variable  
+  github: null        # Set GITHUB_TOKEN environment variable
+
+# Search Settings
+search:
+  max_papers_per_query: 10
+  max_models_per_query: 5
+  max_repos_per_query: 5
+  academic_sources:
+    - "arxiv.org"
+    - "scholar.google.com"
+    - "pubmed.ncbi.nlm.nih.gov"
+
+# Visualization Settings
+visualization:
+  default_dpi: 300
+  default_format: "png"
+  figure_size_default: [12, 8]
+  save_directory: "data_analysis/visualizations"
+  analysis_required: true  # Always analyze generated visualizations
+
+# Code Execution Settings
+execution:
+  timeout_seconds: 300
+  capture_output: true
+  safe_mode: true
+  allowed_imports:
+    - "pandas"
+    - "numpy" 
+    - "matplotlib"
+    - "seaborn"
+    - "sklearn"
+    - "scipy"
+    - "PIL"
+    - "cv2"
+    - "plotly"
+
+# File Operations Settings
+file_operations:
+  allowed_extensions:
+    - ".txt"
+    - ".md" 
+    - ".py"
+    - ".json"
+    - ".csv"
+    - ".yaml"
+    - ".yml"
+    - ".tex"
+    - ".png"
+    - ".jpg"
+    - ".jpeg"
+    - ".pdf"
+  max_file_size_mb: 100
+
+# Logging Settings
+logging:
+  level: "INFO"
+  format: "[%(asctime)s] %(levelname)s: %(message)s"
+  save_logs: true
+  log_directory: "research_logs"
+
+# Output Settings
+output:
+  notebook_cells_format: "jupyter_compatible"
+  markdown_documentation: true
+  save_intermediate_results: true
+  generate_final_summary: true 
