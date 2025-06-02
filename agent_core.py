@@ -99,43 +99,105 @@ class AutonomousResearchAgent:
     def _execute_and_document_code(self, code: str, description: str, 
                                  expected_outputs: List[str] = None) -> Dict[str, Any]:
         """
-        Execute Python code and document the process in notebook format.
+        Execute code and document results in Jupyter-compatible format.
         
         Args:
             code (str): Python code to execute
             description (str): Description of what the code does
-            expected_outputs (List[str]): Expected output files (e.g., visualizations)
+            expected_outputs (List[str]): Expected output files
             
         Returns:
             Dict: Execution results
         """
-        # Add markdown cell describing the code
-        self._add_notebook_cell("markdown", f"# {description}")
+        # Add markdown cell for description
+        self._add_notebook_cell("markdown", description)
         
-        # Add the code cell
+        # Add code cell
         self._add_notebook_cell("code", code)
         
-        # Execute the code
-        result = self.python_executor.run_python_code(code)
+        # Execute the code using Python executor
+        start_time = time.time()
         
-        # Document execution results
-        if result['success']:
-            result_doc = f"**Execution Status**: ✅ Success\n"
-            result_doc += f"**Execution Time**: {result['execution_time']:.2f} seconds\n"
+        try:
+            # Use the Python executor tool
+            execution_result = self.python_executor.run_python_code(
+                code, 
+                capture_output=True
+            )
             
-            if result['stdout']:
-                result_doc += f"\n**Output**:\n```\n{result['stdout']}\n```\n"
-        else:
-            result_doc = f"**Execution Status**: ❌ Failed\n"
-            result_doc += f"**Error**: {result['stderr']}\n"
-        
-        self._add_notebook_cell("markdown", result_doc)
-        
-        # Handle visualization outputs if specified
-        if expected_outputs and result['success']:
-            self._handle_visualization_analysis(expected_outputs)
-        
-        return result
+            execution_time = time.time() - start_time
+            
+            if execution_result.get('success', False):
+                output = execution_result.get('stdout', '')
+                
+                # Document successful execution
+                result_markdown = f"""**Execution Status**: ✅ Success
+**Execution Time**: {execution_time:.2f} seconds
+
+**Output**:
+```
+{output.strip() if output else 'No output'}
+```
+"""
+                
+                # Check for expected outputs (visualizations)
+                if expected_outputs:
+                    for output_file in expected_outputs:
+                        if os.path.exists(output_file):
+                            result_markdown += f"\n**Visualization Generated**: `{os.path.basename(output_file)}`\n"
+                            
+                            # Add visualization analysis workflow
+                            result_markdown += f"""
+The agent has generated and saved a visualization as `{os.path.basename(output_file)}`.
+
+**Agent Action Required**:
+- The agent must now explicitly load and analyze the generated visualization image file programmatically.
+- After analyzing the image, the agent must document its interpretations of the visual patterns observed.
+"""
+                            
+                            # Perform programmatic visualization analysis
+                            self._handle_visualization_analysis([output_file])
+                
+                self._add_notebook_cell("markdown", result_markdown)
+                
+                return {
+                    "success": True,
+                    "output": output,
+                    "execution_time": execution_time,
+                    "visualizations_created": expected_outputs if expected_outputs else []
+                }
+                
+            else:
+                error_msg = execution_result.get('stderr', 'Unknown error')
+                
+                # Document failed execution
+                error_markdown = f"""**Execution Status**: ❌ Failed
+**Error**: {error_msg}
+"""
+                
+                self._add_notebook_cell("markdown", error_markdown)
+                
+                return {
+                    "success": False,
+                    "error": error_msg,
+                    "execution_time": execution_time
+                }
+                
+        except Exception as e:
+            execution_time = time.time() - start_time
+            
+            error_markdown = f"""**Execution Status**: ❌ Exception
+**Error**: {str(e)}
+**Execution Time**: {execution_time:.2f} seconds
+"""
+            
+            self._add_notebook_cell("markdown", error_markdown)
+            
+            return {
+                "success": False,
+                "error": str(e),
+                "execution_time": execution_time
+            }
     
     def _handle_visualization_analysis(self, visualization_files: List[str]):
         """
@@ -320,19 +382,28 @@ The agent will evaluate these models based on:
     
     def perform_data_analysis(self, dataset_path: str) -> Dict[str, Any]:
         """
-        Perform comprehensive exploratory data analysis with visualization.
+        Perform comprehensive data analysis with visualization generation.
         
         Args:
             dataset_path (str): Path to the dataset
             
         Returns:
-            Dict: Data analysis results
+            Dict: Analysis results
         """
         self._log_progress(f"Starting data analysis for: {dataset_path}", "data_analysis")
         
-        # Generate EDA code with explicit visualization handling
-        eda_code = f"""
-# Comprehensive Exploratory Data Analysis
+        # Initialize notebook
+        self.notebook_cells = []
+        
+        # Create comprehensive EDA script that maintains state
+        comprehensive_eda_script = f'''
+# %% [markdown]
+# # Comprehensive Exploratory Data Analysis
+# 
+# This notebook demonstrates the autonomous research agent's approach to data analysis
+# with explicit visualization handling and programmatic image analysis.
+
+# %%
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -347,6 +418,13 @@ sns.set_palette("husl")
 viz_dir = Path('data_analysis/visualizations')
 viz_dir.mkdir(parents=True, exist_ok=True)
 
+print("🚀 Starting Comprehensive EDA Analysis")
+print("=" * 50)
+
+# %% [markdown]
+# ## Dataset Loading and Initial Inspection
+
+# %%
 # Load the dataset
 try:
     # Try different file formats
@@ -360,58 +438,70 @@ try:
         # Assume CSV as default
         data = pd.read_csv('{dataset_path}')
     
-    print(f"Dataset loaded successfully!")
-    print(f"Shape: {{data.shape}}")
-    print(f"Columns: {{list(data.columns)}}")
+    print(f"✅ Dataset loaded successfully!")
+    print(f"📊 Shape: {{{{data.shape}}}}")
+    print(f"📋 Columns: {{{{list(data.columns)}}}}")
+    
+    # Basic dataset info
+    print(f"\\n📈 Data Types:")
+    print(data.dtypes)
+    
+    print(f"\\n🔍 Missing Values:")
+    missing_data = data.isnull().sum()
+    if missing_data.sum() > 0:
+        print(missing_data[missing_data > 0])
+    else:
+        print("No missing values found!")
     
 except Exception as e:
-    print(f"Error loading dataset: {{e}}")
+    print(f"❌ Error loading dataset: {{{{e}}}}")
     # Create sample data for demonstration
     np.random.seed(42)
-    data = pd.DataFrame({{
+    data = pd.DataFrame({{{{
         'feature_1': np.random.normal(0, 1, 1000),
         'feature_2': np.random.exponential(2, 1000),
         'category': np.random.choice(['A', 'B', 'C'], 1000),
         'target': np.random.choice([0, 1], 1000)
-    }})
+    }}}})
     print("Using sample dataset for demonstration")
-    print(f"Shape: {{data.shape}}")
-"""
-        
-        # Execute initial data loading
-        result = self._execute_and_document_code(
-            eda_code,
-            "Dataset Loading and Initial Inspection"
-        )
-        
-        if not result['success']:
-            self._log_progress("Data loading failed, using sample data")
-        
-        # Generate data overview visualization
-        overview_viz_code = """
-# Generate data overview visualizations
-fig, axes = plt.subplots(2, 2, figsize=(15, 12))
-fig.suptitle('Dataset Overview', fontsize=16)
+    print(f"Shape: {{{{data.shape}}}}")
 
-# 1. Data shape and info
+# %% [markdown]
+# ## Dataset Overview Visualization
+
+# %%
+# Generate comprehensive dataset overview
+print("\\n1️⃣ Creating dataset overview visualization...")
+
+fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+fig.suptitle('Dataset Overview Dashboard', fontsize=16, fontweight='bold')
+
+# 1. Dataset information
 ax1 = axes[0, 0]
-ax1.text(0.1, 0.8, f'Dataset Shape: {data.shape}', fontsize=12, transform=ax1.transAxes)
-ax1.text(0.1, 0.6, f'Columns: {len(data.columns)}', fontsize=12, transform=ax1.transAxes)
-ax1.text(0.1, 0.4, f'Rows: {len(data)}', fontsize=12, transform=ax1.transAxes)
-ax1.text(0.1, 0.2, f'Memory Usage: {data.memory_usage().sum() / 1024:.1f} KB', fontsize=12, transform=ax1.transAxes)
+info_text = f"""Dataset Overview
+
+Shape: {{{{data.shape}}}}
+Columns: {{{{len(data.columns)}}}}
+Rows: {{{{len(data)}}}}
+Memory: {{{{data.memory_usage(deep=True).sum() / 1024:.1f}}}} KB
+Duplicates: {{{{data.duplicated().sum()}}}}"""
+
+ax1.text(0.1, 0.9, info_text, transform=ax1.transAxes, fontsize=10,
+         verticalalignment='top', fontfamily='monospace')
 ax1.set_title('Dataset Information')
 ax1.axis('off')
 
-# 2. Missing values heatmap
+# 2. Missing values analysis
 ax2 = axes[0, 1]
 missing_data = data.isnull().sum()
 if missing_data.sum() > 0:
-    missing_data[missing_data > 0].plot(kind='bar', ax=ax2)
+    missing_data[missing_data > 0].plot(kind='bar', ax=ax2, color='coral')
     ax2.set_title('Missing Values by Column')
     ax2.tick_params(axis='x', rotation=45)
 else:
-    ax2.text(0.5, 0.5, 'No Missing Values', ha='center', va='center', transform=ax2.transAxes)
-    ax2.set_title('Missing Values Analysis')
+    ax2.text(0.5, 0.5, 'No Missing Values', ha='center', va='center', 
+            transform=ax2.transAxes, fontsize=14)
+    ax2.set_title('Missing Values Status')
     ax2.axis('off')
 
 # 3. Data types distribution
@@ -419,15 +509,20 @@ ax3 = axes[1, 0]
 dtype_counts = data.dtypes.value_counts()
 dtype_counts.plot(kind='pie', ax=ax3, autopct='%1.1f%%')
 ax3.set_title('Data Types Distribution')
+ax3.set_ylabel('')
 
-# 4. Numerical columns distribution
+# 4. Numerical features distribution
 ax4 = axes[1, 1]
 numerical_cols = data.select_dtypes(include=[np.number]).columns
 if len(numerical_cols) > 0:
-    data[numerical_cols].hist(ax=ax4, bins=20, alpha=0.7)
+    # Show first few numerical columns
+    cols_to_plot = numerical_cols[:4] if len(numerical_cols) > 4 else numerical_cols
+    data[cols_to_plot].boxplot(ax=ax4)
     ax4.set_title('Numerical Features Distribution')
+    ax4.tick_params(axis='x', rotation=45)
 else:
-    ax4.text(0.5, 0.5, 'No Numerical Columns', ha='center', va='center', transform=ax4.transAxes)
+    ax4.text(0.5, 0.5, 'No Numerical Columns', ha='center', va='center',
+            transform=ax4.transAxes, fontsize=14)
     ax4.set_title('Numerical Features')
     ax4.axis('off')
 
@@ -435,19 +530,15 @@ plt.tight_layout()
 plt.savefig('data_analysis/visualizations/dataset_overview.png', dpi=300, bbox_inches='tight')
 plt.close()
 
-print("Dataset overview visualization saved as 'dataset_overview.png'")
-"""
-        
-        # Execute overview visualization with explicit handling
-        self._execute_and_document_code(
-            overview_viz_code,
-            "Dataset Overview Visualization",
-            expected_outputs=["data_analysis/visualizations/dataset_overview.png"]
-        )
-        
-        # Generate correlation analysis
-        correlation_code = """
+print("💾 Saved: dataset_overview.png")
+
+# %% [markdown]
+# ## Correlation Analysis
+
+# %%
 # Correlation analysis for numerical features
+print("\\n2️⃣ Creating correlation analysis...")
+
 numerical_cols = data.select_dtypes(include=[np.number]).columns
 
 if len(numerical_cols) > 1:
@@ -464,7 +555,7 @@ if len(numerical_cols) > 1:
     plt.savefig('data_analysis/visualizations/correlation_matrix.png', dpi=300, bbox_inches='tight')
     plt.close()
     
-    print("Correlation matrix visualization saved as 'correlation_matrix.png'")
+    print("💾 Saved: correlation_matrix.png")
     
     # Print correlation insights
     high_corr_pairs = []
@@ -475,24 +566,109 @@ if len(numerical_cols) > 1:
                 high_corr_pairs.append((correlation_matrix.columns[i], correlation_matrix.columns[j], corr_val))
     
     if high_corr_pairs:
-        print("High correlation pairs found:")
+        print("\\n🔍 High correlation pairs found:")
         for col1, col2, corr in high_corr_pairs:
-            print(f"  {col1} - {col2}: {corr:.3f}")
+            print(f"  {{{{col1}}}} - {{{{col2}}}}: {{{{corr:.3f}}}}")
     else:
-        print("No high correlation pairs (>0.7) found")
+        print("\\n✅ No high correlation pairs (>0.7) found")
         
 else:
-    print("Insufficient numerical columns for correlation analysis")
-"""
+    print("⚠️  Insufficient numerical columns for correlation analysis")
+
+# %% [markdown]
+# ## Programmatic Visualization Analysis
+
+# %%
+# Programmatic analysis of generated visualizations
+print("\\n3️⃣ Analyzing generated visualizations...")
+
+from PIL import Image
+import os
+
+visualizations = ['data_analysis/visualizations/dataset_overview.png', 
+                 'data_analysis/visualizations/correlation_matrix.png']
+
+for viz_file in visualizations:
+    if os.path.exists(viz_file):
+        try:
+            img = Image.open(viz_file)
+            img_array = np.array(img)
+            
+            # Basic image analysis
+            height, width = img_array.shape[:2]
+            brightness = np.mean(img_array)
+            contrast = np.std(img_array)
+            
+            print(f"\\n📊 Analysis of {{{{os.path.basename(viz_file)}}}}:")
+            print(f"  - Dimensions: {{{{width}}}} x {{{{height}}}} pixels")
+            print(f"  - Average brightness: {{{{brightness:.2f}}}}")
+            print(f"  - Contrast (std dev): {{{{contrast:.2f}}}}")
+            
+            if contrast > 50:
+                print("  - ✅ High contrast detected - clear, well-defined visualization")
+            else:
+                print("  - ⚠️  Low contrast - visualization may need enhancement")
+                
+        except Exception as e:
+            print(f"  ❌ Error analyzing {{{{viz_file}}}}: {{{{e}}}}")
+    else:
+        print(f"  ⚠️  Visualization not found: {{{{viz_file}}}}")
+
+# %% [markdown]
+# ## Summary and Insights
+
+# %%
+print("\\n4️⃣ EDA Summary and Insights")
+print("=" * 50)
+
+print(f"📊 Dataset Summary:")
+print(f"  - Total samples: {{{{len(data)}}}}")
+print(f"  - Total features: {{{{len(data.columns)}}}}")
+print(f"  - Numerical features: {{{{len(data.select_dtypes(include=[np.number]).columns)}}}}")
+print(f"  - Categorical features: {{{{len(data.select_dtypes(include=['object', 'category']).columns)}}}}")
+print(f"  - Missing values: {{{{data.isnull().sum().sum()}}}}")
+
+print(f"\\n🎯 Key Insights:")
+print("  - Data quality: " + ("Good" if data.isnull().sum().sum() == 0 else "Needs attention"))
+print("  - Feature diversity: " + ("High" if len(data.columns) > 5 else "Moderate"))
+print("  - Sample size: " + ("Large" if len(data) > 1000 else ("Moderate" if len(data) > 100 else "Small")))
+
+print(f"\\n📈 Recommendations:")
+print(f"  - Proceed with model development using current features")
+print(f"  - Consider feature engineering for improved performance")
+print(f"  - Monitor for overfitting given the dataset characteristics")
+
+print("\\n✅ EDA Analysis Complete!")
+print("📁 All visualizations saved to: data_analysis/visualizations/")
+'''
         
-        self._execute_and_document_code(
-            correlation_code,
-            "Correlation Analysis and Visualization",
-            expected_outputs=["data_analysis/visualizations/correlation_matrix.png"]
+        # Save the comprehensive script
+        script_path = "agent_workspace/exploratory_data_analysis.py"
+        self.file_ops.write_file(script_path, comprehensive_eda_script)
+        
+        # Execute the comprehensive script
+        print("Executing comprehensive EDA script...")
+        execution_result = self.python_executor.run_python_code(
+            comprehensive_eda_script,
+            capture_output=True
         )
         
-        # Save the complete EDA notebook
-        self._save_notebook_script("exploratory_data_analysis.py")
+        if execution_result.get('success', False):
+            print("✅ EDA script executed successfully!")
+            output = execution_result.get('stdout', '')
+            
+            # Add the output to notebook format
+            self._add_notebook_cell("markdown", "# Comprehensive EDA Execution Results")
+            self._add_notebook_cell("markdown", f"```\\n{output}\\n```")
+            
+        else:
+            print("❌ EDA script execution failed!")
+            error = execution_result.get('stderr', 'Unknown error')
+            print(f"Error: {error}")
+            
+            # Add error to notebook
+            self._add_notebook_cell("markdown", "# EDA Execution Error")
+            self._add_notebook_cell("markdown", f"```\\n{error}\\n```")
         
         # Update dataset overview document
         overview_doc = f"""# Dataset Overview and Analysis
@@ -500,7 +676,7 @@ else:
 ## Dataset Information
 - **Dataset Path**: {dataset_path}
 - **Analysis Date**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-- **Analysis Status**: Completed successfully
+- **Analysis Status**: {'Completed successfully' if execution_result.get('success', False) else 'Failed'}
 
 ## Key Findings
 The autonomous agent has completed comprehensive exploratory data analysis including:
@@ -509,9 +685,10 @@ The autonomous agent has completed comprehensive exploratory data analysis inclu
 2. **Missing Values Analysis**: Identification of data quality issues
 3. **Correlation Analysis**: Feature relationships and dependencies
 4. **Visualization Generation**: Multiple charts saved for detailed review
+5. **Programmatic Analysis**: Automated interpretation of generated visualizations
 
 ## Visualizations Generated
-- `dataset_overview.png`: Comprehensive dataset summary
+- `dataset_overview.png`: Comprehensive dataset summary dashboard
 - `correlation_matrix.png`: Feature correlation heatmap
 
 ## Next Steps
@@ -531,7 +708,8 @@ All analysis code has been saved in Jupyter-compatible format as `exploratory_da
         return {
             "analysis_completed": True,
             "visualizations_generated": ["dataset_overview.png", "correlation_matrix.png"],
-            "notebook_saved": "exploratory_data_analysis.py"
+            "notebook_saved": "exploratory_data_analysis.py",
+            "execution_success": execution_result.get('success', False)
         }
     
     def run_research_workflow(self, topic: str, dataset_path: str) -> Dict[str, Any]:
